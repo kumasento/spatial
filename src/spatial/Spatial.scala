@@ -88,6 +88,7 @@ trait Spatial extends Compiler with ParamLoader {
     lazy val retimeReporter = RetimeReporter(state)
 
     // --- Transformer
+    lazy val dummyTransformer      = DummyTransformer(state)
     lazy val friendlyTransformer   = FriendlyTransformer(state)
     lazy val switchTransformer     = SwitchTransformer(state)
     lazy val switchOptimizer       = SwitchOptimizer(state)
@@ -120,7 +121,7 @@ trait Spatial extends Compiler with ParamLoader {
     val result = {
 
         block ==> printer     ==>
-        cliNaming           ==>
+        cliNaming             ==>
         (friendlyTransformer) ==> printer ==> transformerChecks ==>
         userSanityChecks    ==>
         /** Black box lowering */
