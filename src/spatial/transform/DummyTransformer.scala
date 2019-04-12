@@ -9,8 +9,6 @@ import spatial.traversal.AccelTraversal
 case class DummyTransformer(IR: State) extends MutateTransformer with AccelTraversal {
 
   override def transform[A: Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
-    case _: AccelScope => inAccel {
-      super.transform(lhs, rhs)
-    }
+    case _ => super.transform(lhs, rhs)
   }
 }
