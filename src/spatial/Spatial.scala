@@ -150,7 +150,7 @@ trait Spatial extends Compiler with ParamLoader {
         /** Memory analysis */
         retimingAnalyzer    ==>
         accessAnalyzer      ==>
-        iterationDiffAnalyzer   ==>
+        iterationDiffAnalyzer   ==> printer ==>
         memoryAnalyzer      ==>
         memoryAllocator     ==> printer ==>
         /** Unrolling */
