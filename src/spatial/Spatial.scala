@@ -117,12 +117,17 @@ trait Spatial extends Compiler with ParamLoader {
     lazy val dotFlatGen    = DotFlatGenSpatial(state)
     lazy val dotHierGen    = DotHierarchicalGenSpatial(state)
 
+    // --- Auto diff
+    lazy val autoDiff = AutoDiffTransformer(state)
+
     val result = {
 
         block ==> printer     ==>
         cliNaming           ==>
         (friendlyTransformer) ==> printer ==> transformerChecks ==>
         userSanityChecks    ==>
+        /** Auto diff */
+        autoDiff ==> printer ==>
         /** Black box lowering */
         (switchTransformer)   ==> printer ==> transformerChecks ==>
         (switchOptimizer)     ==> printer ==> transformerChecks ==>

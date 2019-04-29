@@ -7,6 +7,7 @@ import spatial.node._
 import spatial.metadata.CLIArgs
 import spatial.SpatialTest
 
+/** Setup name of CLI arguments (CLIArgs) */
 case class CLINaming(IR: State) extends Traversal {
 
   private def traceName(lhs: Sym[_], idx: Int): Option[String] = lhs.name.orElse{
