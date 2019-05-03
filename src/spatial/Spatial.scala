@@ -102,6 +102,7 @@ trait Spatial extends Compiler with ParamLoader {
     lazy val retiming              = RetimingTransformer(state)
     lazy val accumTransformer      = AccumTransformer(state)
     lazy val regReadCSE            = RegReadCSE(state)
+    lazy val primTransform         = PrimTransformer(state)
 
     // --- Codegen
     lazy val chiselCodegen = ChiselGen(state)
@@ -118,18 +119,18 @@ trait Spatial extends Compiler with ParamLoader {
     lazy val dotHierGen    = DotHierarchicalGenSpatial(state)
 
     val result = {
-
         block ==> printer     ==>
         cliNaming           ==>
         (friendlyTransformer) ==> printer ==> transformerChecks ==>
         userSanityChecks    ==>
-        /** Black box lowering */
+      /** Black box lowering */
         (switchTransformer)   ==> printer ==> transformerChecks ==>
         (switchOptimizer)     ==> printer ==> transformerChecks ==>
         (blackboxLowering1)   ==> printer ==> transformerChecks ==>
         /** More black box lowering */
         (blackboxLowering2)   ==> printer ==> transformerChecks ==>
-        /** DSE */
+          primTransform       ==> printer ==> transformerChecks ==>
+      /** DSE */
         ((spatialConfig.enableArchDSE) ? paramAnalyzer) ==> 
         /** Optional scala model generator */
         ((spatialConfig.enableRuntimeModel) ? retimingAnalyzer) ==>
@@ -144,7 +145,7 @@ trait Spatial extends Compiler with ParamLoader {
         pipeInserter        ==> printer ==> transformerChecks ==>
         /** CSE on regs */
         regReadCSE          ==>
-        /** Dead code elimination */
+      /** Dead code elimination */
         useAnalyzer         ==>
         transientCleanup    ==> printer ==> transformerChecks ==>
         /** Memory analysis */
@@ -164,7 +165,7 @@ trait Spatial extends Compiler with ParamLoader {
         rewriteAnalyzer     ==>
         (spatialConfig.enableOptimizedReduce ? accumAnalyzer) ==> printer ==>
         rewriteTransformer  ==> printer ==> transformerChecks ==>
-        /** Pipe Flattening */
+      /** Pipe Flattening */
         flatteningTransformer ==> 
         /** Update buffer depths */
         bufferRecompute     ==> printer ==> transformerChecks ==>

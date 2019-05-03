@@ -19,6 +19,7 @@ trait StaticAPI_Internal extends InternalAliases with SpatialVirtualization with
   with TransferAPI
   with TuplesAPI
   with UserData
+  with PrimAPI
 
 /** External view for extending DSLs */
 trait StaticAPI_External extends StaticAPI_Internal with ExternalAliases
