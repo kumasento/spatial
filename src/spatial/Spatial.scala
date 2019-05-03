@@ -126,8 +126,6 @@ trait Spatial extends Compiler with ParamLoader {
         cliNaming           ==>
         (friendlyTransformer) ==> printer ==> transformerChecks ==>
         userSanityChecks    ==>
-        /** Auto diff */
-        autoDiff ==> printer ==>
         /** Black box lowering */
         (switchTransformer)   ==> printer ==> transformerChecks ==>
         (switchOptimizer)     ==> printer ==> transformerChecks ==>
@@ -135,12 +133,12 @@ trait Spatial extends Compiler with ParamLoader {
         /** More black box lowering */
         (blackboxLowering2)   ==> printer ==> transformerChecks ==>
         /** DSE */
-        ((spatialConfig.enableArchDSE) ? paramAnalyzer) ==> 
+        ((spatialConfig.enableArchDSE) ? paramAnalyzer) ==>
         /** Optional scala model generator */
         ((spatialConfig.enableRuntimeModel) ? retimingAnalyzer) ==>
         ((spatialConfig.enableRuntimeModel) ? initiationAnalyzer) ==>
         ((spatialConfig.enableRuntimeModel) ? dseRuntimeModelGen) ==>
-        (spatialConfig.enableArchDSE ? dsePass) ==> 
+        (spatialConfig.enableArchDSE ? dsePass) ==>
         //blackboxLowering    ==> printer ==> transformerChecks ==>
         switchTransformer   ==> printer ==> transformerChecks ==>
         switchOptimizer     ==> printer ==> transformerChecks ==>
@@ -165,12 +163,14 @@ trait Spatial extends Compiler with ParamLoader {
         /** Dead code elimination */
         useAnalyzer         ==>
         transientCleanup    ==> printer ==> transformerChecks ==>
+        /** Auto diff */
+        autoDiff ==> printer ==>
         /** Hardware Rewrites **/
         rewriteAnalyzer     ==>
         (spatialConfig.enableOptimizedReduce ? accumAnalyzer) ==> printer ==>
         rewriteTransformer  ==> printer ==> transformerChecks ==>
         /** Pipe Flattening */
-        flatteningTransformer ==> 
+        flatteningTransformer ==>
         /** Update buffer depths */
         bufferRecompute     ==> printer ==> transformerChecks ==>
         /** Accumulation Specialization **/
@@ -200,7 +200,7 @@ trait Spatial extends Compiler with ParamLoader {
         (spatialConfig.enableResourceReporter ? resourceReporter) ==>
         (spatialConfig.enablePIR ? pirCodegen) ==>
         (spatialConfig.enableTsth ? tsthCodegen) ==>
-        irCodegen           
+        irCodegen
     }
 
     isl.shutdown(100)
@@ -281,7 +281,7 @@ trait Spatial extends Compiler with ParamLoader {
     cli.note("")
     cli.note("Experimental:")
 
-    cli.opt[Unit]("mop").action{ (_,_) => 
+    cli.opt[Unit]("mop").action{ (_,_) =>
       spatialConfig.unrollMetapipeOfParallels = true
       spatialConfig.unrollParallelOfMetapipes = false
     }.text("""
@@ -299,7 +299,7 @@ trait Spatial extends Compiler with ParamLoader {
             |-- Pipe2{...}
 """)
 
-    cli.opt[Unit]("pom").action{ (_,_) => 
+    cli.opt[Unit]("pom").action{ (_,_) =>
       spatialConfig.unrollParallelOfMetapipes = true
       spatialConfig.unrollMetapipeOfParallels = false
     }.text("""
@@ -317,7 +317,7 @@ trait Spatial extends Compiler with ParamLoader {
             |-- Pipe2{...}
 """)
 
-    cli.opt[Unit]("looseIterDiffs").action{ (_,_) => 
+    cli.opt[Unit]("looseIterDiffs").action{ (_,_) =>
       spatialConfig.enableLooseIterDiffs = true
     }.text("Ignore iteration difference analysis for loops where some iterators are not part of the accumulator cycle but its leading iterators run for an unknown duration")
 
@@ -360,7 +360,7 @@ trait Spatial extends Compiler with ParamLoader {
       spatialConfig.enableModular = true
     }.text("Enables modular codegen")
 
-    cli.opt[Unit]("forceBanking").action { (_,_) => 
+    cli.opt[Unit]("forceBanking").action { (_,_) =>
       spatialConfig.enableForceBanking = true
     }.text("Ensures that memories will always get banked and compiler will never decide that it is cheaper to duplicate")
 
@@ -378,7 +378,7 @@ trait Spatial extends Compiler with ParamLoader {
 
     cli.opt[Int]("sramThreshold").action { (t,_) => spatialConfig.sramThreshold = t }.text("Minimum number of elements in memory to instantiate BRAM over Registers")
 
-    cli.opt[Unit]("noOptimizeReduce").action { (_,_) => 
+    cli.opt[Unit]("noOptimizeReduce").action { (_,_) =>
       spatialConfig.enableOptimizedReduce = false
     }.text("Do not squeeze II of reductions to 1 where possible, and instantiate specialized reduce node")
 
@@ -386,11 +386,11 @@ trait Spatial extends Compiler with ParamLoader {
       spatialConfig.enableRuntimeModel = true
     }.text("Enable application runtime estimation")
 
-    cli.opt[String]("load-param").action{(x,_) => 
+    cli.opt[String]("load-param").action{(x,_) =>
       loadParams(x)
     }.text("Set path to load application parameter")
 
-    cli.opt[String]("save-param").action{(x,_) => 
+    cli.opt[String]("save-param").action{(x,_) =>
       spatialConfig.paramSavePath = Some(x)
     }.text("Set path to store application parameter")
   }

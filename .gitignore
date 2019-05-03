@@ -52,3 +52,7 @@ branchname
 reghash
 bin/spatialfast
 lib_managed
+
+# Some Scala cache files
+.metals/
+.bloop/

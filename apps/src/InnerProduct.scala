@@ -16,13 +16,16 @@ import spatial.dsl._
     // create the external memory
     val d1 = DRAM[T](len)
     val d2 = DRAM[T](len)
+    val c = ArgIn[T] // a constant
 
     // fill the external memory with generated test data
     setMem(d1, vec1)
     setMem(d2, vec2)
+    setArg(c, 2.0)
 
     // allocate register for the answer
     val x = ArgOut[T]
+    val y = ArgOut[T]
     Accel {
       // create local SRAMs
       val s1 = SRAM[T](len)
@@ -36,17 +39,10 @@ import spatial.dsl._
       x := Reduce(Reg[T](0))(len by 1) { i => s1(i) * s2(i) } {
         _ + _
       }
+      y := getGrad[T](x, c)
     }
 
-    val gold = vec1.zip(vec2) {
-      _ * _
-    }.reduce {
-      _ + _
-    }
 
-    assert(gold == getArg(x), r"Expected ${gold}, got ${getArg(x)}!")
-
-    println("Test PASSED!")
   }
 }
 
