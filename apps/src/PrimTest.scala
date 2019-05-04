@@ -17,9 +17,9 @@ import spatial.dsl._
       z := prim(x, y)
     }
 
-    println(s"Sum of x and y is d = ${getArg(d)}")
-    assert(getArg(t) == x + y, s"Expected t to be ${x + y}, got: ${getArg(t)}")
-    assert(getArg(z) == x * x + y * y, s"Expected z to be ${x * x + y * y}, got: ${getArg(z)}")
+    println(r"Sum of x and y is d = ${getArg(d)}")
+    assert(getArg(t) == x * y, r"Expected t to be ${x * y}, got: ${getArg(t)}")
+    assert(getArg(z) == x * x + y * y, r"Expected z to be ${x * x + y * y}, got: ${getArg(z)}")
   }
 }
 
