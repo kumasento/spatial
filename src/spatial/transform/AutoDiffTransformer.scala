@@ -20,31 +20,39 @@ case class AutoDiffTransformer(IR: State) extends MutateTransformer with BlkTrav
     println(s"Inserting gradient for $y over $x ...")
     println(s"$y inputs = ${y.inputs} op = ${y.op}")
 
+    type T = Fix[S, I, F]
+
     implicit val S: BOOL[S] = x.fmt.s
     implicit val I: INT[I] = x.fmt.i
     implicit val F: INT[F] = x.fmt.f
 
     if (x == y) {
-      1.0.to[Fix[S, I, F]]
+      1.0.to[T]
+    } else if (y.inputs.isEmpty) {
+      0.0.to[T]
     } else {
       y.op match {
         case Some(FixMul(v1, v2)) =>
-
           val dv1dx = insertReverseADFix(v1, x)
           val dv2dx = insertReverseADFix(v2, x)
           stage(FixAdd(stage(FixMul(v1, dv2dx)), stage(FixMul(v2, dv1dx))))
 
+        // TODO: how to avoid duplicating similar logic?
         case Some(FixAdd(v1, v2)) =>
           val dv1dx = insertReverseADFix(v1, x)
           val dv2dx = insertReverseADFix(v2, x)
           stage(FixAdd(dv1dx, dv2dx))
 
-        case Some(RegRead(v)) =>
-          println(s"Found RegRead from $v ${v.scope} ...")
-          if (v.scope != x.scope)
-            1.0.to[Fix[S, I, F]]
-          else
-            insertReverseADFix(v, x)
+        case Some(FixSub(v1, v2)) =>
+          val dv1dx = insertReverseADFix(v1, x)
+          val dv2dx = insertReverseADFix(v2, x)
+          stage(FixSub(dv1dx, dv2dx))
+
+        case Some(RegRead(v)) => // TODO: is this correct?
+          if (v.asSym == x.asSym) 1.0.to[T] else 0.0.to[T]
+
+        case None => // TODO: is this always a Const?
+          0.0.to[T]
 
         case _ => throw new RuntimeException(s"Unrecognized op: ${y.op}")
       }
