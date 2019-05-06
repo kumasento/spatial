@@ -6,7 +6,8 @@ import spatial.dsl._
 /**
   * The formula of this Spatial app is:
   *
-  * y = f(x) = x**2
+  * y = f(x) = x**2 + x
+  * dy/dx(x) = 2 x + 1
   */
 @spatial object ScalarAutoDiffSingleInput extends SpatialApp {
 
@@ -22,12 +23,12 @@ import spatial.dsl._
 
     Accel {
       // Perform the calculation
-      val y = x ** 2
+      val y = x ** 2 + x
 
       // Call the auto-diff API to compute the gradient
       dydx := getGrad[T](y, x)
     }
 
-    println(s"x = $x, dy/dx = $dydx")
+    println(r"x = ${getArg(x)}, dy/dx = ${getArg(dydx)}")
   }
 }

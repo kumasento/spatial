@@ -16,46 +16,37 @@ import spatial.traversal._
   */
 case class AutoDiffTransformer(IR: State) extends MutateTransformer with BlkTraversal {
 
-  private def insertReverseAutoDiff[R](block: Block[R], grad: Sym[_]): Block[R] = {
-    stageBlock(f(block.inputs), block.options) { block.result }
-  }
+  def insertReverseADFix[S, I, F](y: Fix[S, I, F], x: Fix[S, I, F]): Fix[S, I, F] = {
+    println(s"Inserting gradient for $y over $x ...")
+    println(s"$y inputs = ${y.inputs} op = ${y.op}")
 
-  /**
-    * Transform if there is a request for getGrad
-    *
-    * @param lhs
-    * @param rhs
-    * @param ctx
-    * @tparam A
-    * @return
-    */
-  private def transformGrad[A: Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
-    case ctrl: Control[_] => {
-      inCtrl(lhs) {
-        // Only a Control Op is expected here
-        println(s"lhs = $lhs rhs = $rhs")
+    implicit val S: BOOL[S] = x.fmt.s
+    implicit val I: INT[I] = x.fmt.i
+    implicit val F: INT[F] = x.fmt.f
 
-        ctrl.bodies.foreach {
-          body =>
-            dbg(s"In ctrl body $body")
+    if (x == y) {
+      1.0.to[Fix[S, I, F]]
+    } else {
+      y.op match {
+        case Some(FixMul(v1, v2)) =>
 
-            body.blocks.foreach {
-              case (_, blk) =>
-                println(s"blk = $blk inputs = ${
-                  blk.inputs
-                }")
+          val dv1dx = insertReverseADFix(v1, x)
+          val dv2dx = insertReverseADFix(v2, x)
+          stage(FixAdd(stage(FixMul(v1, dv2dx)), stage(FixMul(v2, dv1dx))))
 
-                blk.stms.reverse.foreach { stm =>
-                  println(s"stm = $stm op = ${stm.op} inputs = ${stm.inputs}")
-                  stm.op match {
-                    case Some(Grad(y, x)) =>
-                      register(blk -> insertReverseAutoDiff(blk, lhs))
-                    case _ => {}
-                  }
-                }
-            }
-        }
-        super.transform(lhs, rhs)
+        case Some(FixAdd(v1, v2)) =>
+          val dv1dx = insertReverseADFix(v1, x)
+          val dv2dx = insertReverseADFix(v2, x)
+          stage(FixAdd(dv1dx, dv2dx))
+
+        case Some(RegRead(v)) =>
+          println(s"Found RegRead from $v ${v.scope} ...")
+          if (v.scope != x.scope)
+            1.0.to[Fix[S, I, F]]
+          else
+            insertReverseADFix(v, x)
+
+        case _ => throw new RuntimeException(s"Unrecognized op: ${y.op}")
       }
     }
   }
@@ -71,8 +62,9 @@ case class AutoDiffTransformer(IR: State) extends MutateTransformer with BlkTrav
     * @return the symbol which should replace lhs
     */
   override def transform[A: Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
-    case _: AccelScope => inAccel {
-      transformGrad(lhs, rhs)
+    case Grad(F(y: Fix[_, _, _]), F(x: Fix[_, _, _])) => {
+      println(s"Found Grad: $y over $x")
+      insertReverseADFix(y, x).asInstanceOf[Sym[A]]
     }
     case _ => super.transform(lhs, rhs)
   }
