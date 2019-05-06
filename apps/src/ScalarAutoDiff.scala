@@ -1,5 +1,5 @@
 /**
-  * Auto-diff demo on scalar arithmetic.
+  * Auto-diff demo on scalar formulas.
   */
 
 import spatial.dsl._
@@ -60,7 +60,9 @@ import spatial.dsl._
     val dzdy = ArgOut[T]
 
     Accel {
-      val z_ = (a - x) ** 2 + b * ((y - x ** 2) ** 2)
+      val z1 = (a - x) ** 2
+      val z2 = b * ((y - x ** 2) ** 2)
+      val z_ = z1 + z2
 
       dzdx := getGrad(z_, x)
       dzdy := getGrad(z_, y)

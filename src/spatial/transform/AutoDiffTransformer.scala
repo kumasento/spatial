@@ -48,7 +48,8 @@ case class AutoDiffTransformer(IR: State) extends MutateTransformer with BlkTrav
           val dv2dx = insertReverseADFix(v2, x)
           stage(FixSub(dv1dx, dv2dx))
 
-        case Some(RegRead(v)) => // TODO: is this correct?
+        // TODO: is this correct? Should find a way to validate
+        case Some(RegRead(v)) =>
           if (v.asSym == x.asSym) 1.0.to[T] else 0.0.to[T]
 
         case None => // TODO: is this always a Const?
