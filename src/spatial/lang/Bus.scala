@@ -3,6 +3,8 @@ package spatial.lang
 import argon.Mirrorable
 import argon.tags.struct
 import forge.tags._
+import argon.lang.types._
+import argon._
 
 case class Pin(name: String) {
   override def toString: String = name
@@ -23,10 +25,55 @@ case class PinBus(valid: Pin, data: Seq[Pin]) extends Bus {
   @rig def nbits: Int = data.length
 }
 
+/* Type for AxiStream interface for a 64-bit datapath. TODO: tid tdest and tuser widths are made up */
+@struct case class AxiStream64(tdata: U64, tstrb: U8, tkeep: U8, tlast: Bit, tid: U8, tdest: U8, tuser: U32)
+object AxiStream64Data {
+  /* Helper for those who don't care about the other fields of the axi stream */
+  @stateful def apply(tdata: U64): AxiStream64 = AxiStream64(tdata, Bits[U8].from(0), Bits[U8].from(0), Bit(false), Bits[U8].from(0), Bits[U8].from(0), Bits[U32].from(0))
+}
+case class AxiStream64Bus(tid: scala.Int, tdest: scala.Int) extends Bus { @rig def nbits: Int = 64 }
+
+/* Type for AxiStream interface for a 256-bit datapath. TODO: tid tdest and tuser widths are made up */
+@struct case class AxiStream256(tdata: U256, tstrb: U32, tkeep: U32, tlast: Bit, tid: U8, tdest: U8, tuser: U32)
+object AxiStream256Data {
+  /* Helper for those who don't care about the other fields of the axi stream */
+  @stateful def apply(tdata: U256): AxiStream256 = AxiStream256(tdata, Bits[U32].from(0), Bits[U32].from(0), Bit(false), Bits[U8].from(0), Bits[U8].from(0), Bits[U32].from(0))
+}
+case class AxiStream256Bus(tid: scala.Int, tdest: scala.Int) extends Bus { @rig def nbits: Int = 256 }
+
+/* Type for AxiStream interface for a 256-bit datapath. TODO: tid tdest and tuser widths are made up */
+@struct case class AxiStream512(tdata: U512, tstrb: U64, tkeep: U64, tlast: Bit, tid: U8, tdest: U8, tuser: U64)
+object AxiStream512Data {
+  /* Helper for those who don't care about the other fields of the axi stream */
+  @stateful def apply(tdata: U512): AxiStream512 = AxiStream512(tdata, Bits[U64].from(0), Bits[U64].from(0), Bit(false), Bits[U8].from(0), Bits[U8].from(0), Bits[U64].from(0))
+}
+case class AxiStream512Bus(tid: scala.Int, tdest: scala.Int) extends Bus { @rig def nbits: Int = 512 }
+
 @struct case class BurstCmd(offset: I64, size: I32, isLoad: Bit)
 @struct case class IssuedCmd(size: I32, start: I32, end: I32)
 
+
+
 abstract class DRAMBus[A:Bits] extends Bus { @rig def nbits: Int = Bits[A].nbits }
+
+/*
+ * Bus type on StreamIn and StreamOut. Each element in Stream In Out will be a new line in csv.
+ * If A is struct, different fields will be in columns of the CSV.
+ * */
+case class FileBus[A:Bits](fileName:String) extends Bus { @rig def nbits: Int = Bits[A].nbits }
+/*
+ * Same as FileBus. Except A must be struct type with last field in Bit type. The last field
+ * will be interpreted as last bit of the stream to terminate simulation.
+ * */
+case class FileEOFBus[A:Bits](fileName:String)(implicit state:State) extends Bus { 
+  Type[A] match {
+    case a:Struct[_] if a.fields.last._2 == Type[Bit] => 
+    case a => 
+      error(s"EFOBus must have struct type with last field in Bit. Got type ${a}")
+      state.logError()
+  }
+  @rig def nbits: Int = Bits[A].nbits
+}
 
 case object BurstCmdBus extends DRAMBus[BurstCmd]
 case object BurstAckBus extends DRAMBus[Bit]

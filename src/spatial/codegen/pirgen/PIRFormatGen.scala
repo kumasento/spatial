@@ -5,11 +5,15 @@ import argon.lang._
 import argon.codegen.{Codegen, FileDependencies}
 import spatial.metadata._
 import spatial.metadata.memory._
+import spatial.metadata.bounds._
 import spatial.node._
 
 import scala.collection.mutable
 
 case class Lhs(sym:Sym[_], postFix:Option[String]=None)
+object Lhs {
+  def apply(sym:Sym[_], postFix:String):Lhs = Lhs(sym,Some(postFix))
+}
 
 trait PIRFormatGen extends Codegen {
 
@@ -29,6 +33,15 @@ trait PIRFormatGen extends Codegen {
       case (None, Some(postFix)) => rhsStr += src""".name("${postFix}")"""
       case (None, None) => 
     }
+    lhs.sym.count.foreach { c =>
+      rhsStr += src".count($c)"
+    }
+    lhs.sym.barrier.foreach { id =>
+      rhsStr += src".barrier($id)"
+    }
+    lhs.sym.waitFors.foreach { ids =>
+      rhsStr += src".waitFors($ids)"
+    }
     emitStm(lhs, tpStr, rhsStr)
   }
 
@@ -47,9 +60,9 @@ trait PIRFormatGen extends Codegen {
 
   def comment(lhs:Lhs, tp:String) = {
     lhs.sym match {
-      case Def(LUTNew(dims, elems)) => src"[$tp] $lhs = LUTNew($dims, elems)"
-      case Def(op) => src"[$tp] $lhs = $op"
-      case lhs => src"[$tp] $lhs"
+      case Def(LUTNew(dims, elems)) => s"[$tp] ${quoteOrRemap(lhs)} = LUTNew($dims, elems)"
+      case Def(op) => s"[$tp] ${quoteOrRemap(lhs)} = $op"
+      case lhs => s"[$tp] ${quoteOrRemap(lhs)}"
     }
   }
 

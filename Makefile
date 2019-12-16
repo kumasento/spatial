@@ -36,7 +36,7 @@ install:
 ## Update pir libs.                    ##
 ###-----------------------------------###
 pir:
-	git submodule update pir --init --recursive
+	git submodule update --init
 	bin/update_resources.sh
 	cd pir && make install
 
@@ -44,6 +44,9 @@ pir-update:
 	git submodule update pir
 	bin/update_resources.sh
 	cd pir && make update
+
+pir-clean:
+	make -C pir/ clean
 
 pir-develop:
 	git submodule update --init --recursive

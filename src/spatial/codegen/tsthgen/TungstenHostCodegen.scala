@@ -25,7 +25,7 @@ trait TungstenHostCodegen extends FileDependencies with CppCodegen {
 #include <fstream>
 #include <istream>
 #include "repl.h"
-#include "Top.h"
+#include "DUT.h"
 #include "cppgenutil.h"
 
 using namespace std;
@@ -37,7 +37,7 @@ using namespace std;
       emit(s"""fprintf(stderr, "Help for app: ${config.name}\\n");""")
       emit(s"""fprintf(stderr, "  -- Args:    ${argsList.mkString(" ")}\\n");""")
       while(examples.hasNext) {
-        emit(s"""fprintf(stderr, "    -- Example: bash run.sh ${examples.next.mkString(" ")}\\n");""")  
+        emit(s"""fprintf(stderr, "    -- Example: ./tungsten ${examples.next.mkString(" ")}\\n");""")  
       }
   	  emit(s"""exit(1);""")
     close("}")
@@ -49,6 +49,7 @@ using namespace std;
         emit(src"""if (std::string(argv[i]) == "--help" | std::string(argv[i]) == "-h") {printHelp();}""")
       close("}")
       gen(block)
+      emit(s"""cout << "Complete Simulation" << endl;""")
     close(s"""}""")
   }
 

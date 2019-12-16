@@ -3,6 +3,7 @@ package spatial.codegen.dotgen
 import argon._
 import spatial.metadata.control._
 import spatial.metadata.memory._
+import spatial.metadata.bounds._
 import spatial.util.spatialConfig
 
 case class HtmlIRGenSpatial(val IR: State) extends HtmlIRCodegen {
@@ -12,6 +13,7 @@ case class HtmlIRGenSpatial(val IR: State) extends HtmlIRCodegen {
   override protected def quoteConst(tp: Type[_], c: Any): String = s"$c"
 
   override protected def quote(s: Sym[_]): String = s.rhs match {
+    case rhs if s.vecConst.nonEmpty => s"[${s.vecConst.get.mkString(",")}]"
     case (_:Def.Node[_] | _:Def.Bound[_]) => 
       val q = super.quote(s)
       elem("a", q, "href"->s"IR.html#$q")
@@ -71,7 +73,7 @@ case class HtmlIRGenSpatial(val IR: State) extends HtmlIRCodegen {
     case spatial.metadata.memory.Duplicates(d) =>
       text(src"${elem("strong",data.getClass.getSimpleName)}")
       emitElem("ul", "style"->"list-style-type:disc") {
-        d.foreach { case spatial.metadata.memory.Memory(banking, depth, padding, darkVolume, accType) =>
+        d.foreach { case spatial.metadata.memory.Memory(banking, depth, padding, accType) =>
           emitElem("li"){
             text(src"${elem("strong","banking")}")
             emitElem("ul", "style"->"list-style-type:none") {
@@ -81,7 +83,6 @@ case class HtmlIRGenSpatial(val IR: State) extends HtmlIRCodegen {
             }
             text(src"${elem("strong","depth")}: $depth")
             text(src"${elem("strong","padding")}: $padding")
-            text(src"${elem("strong","darkVolume")}: $darkVolume")
             text(src"${elem("strong","accType")}: $accType")
           }
         }

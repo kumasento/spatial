@@ -10,7 +10,7 @@ trait CppGenFileIO extends CppGenCommon {
     case OpenBinaryFile(filename, isWr) =>
       val dir = if (isWr) "o" else "i"
       emit(src"""std::${dir}fstream ${lhs} ($filename, std::ios::binary);""")
-      emit(src"""assert(${lhs}.good() && "File ${s"$filename".replace("\"","")} does not exist"); """)
+      emit(src"""assert(${lhs}.good() && "File ${src"$filename".replace("\"","")} does not exist"); """)
 
     case op @ ReadBinaryFile(file) =>
       // Pull raw data out of file
@@ -23,7 +23,7 @@ trait CppGenFileIO extends CppGenCommon {
       val rawtp = asIntType(op.A)
       // Place raw data in appropriately-sized vector with correct bit width
       emit(src"std::vector<${rawtp}>* ${lhs}_raw = new std::vector<${rawtp}>(${lhs}_temp.size()/${chars});")
-      emit(src"std::memcpy((void*)&((*${lhs}_raw)[0]), &(${lhs}_temp[0]), ${lhs}_temp.size() * sizeof(char));")
+      emit(src"memcpy((void*)&((*${lhs}_raw)[0]), &(${lhs}_temp[0]), ${lhs}_temp.size() * sizeof(char));")
       // Convert raw data into appropriate type
       emit(src"${lhs.tp}* ${lhs} = new ${lhs.tp}((*${lhs}_raw).size());")
       op.A match { 

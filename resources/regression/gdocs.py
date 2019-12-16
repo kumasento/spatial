@@ -1,13 +1,10 @@
 # This is called by regression_run.sh / scrape.sh / regression_functions.sh / receive.sh / synth_launcher.sh / synth_regression.sh
 
 import re
-import gspread
 import getpass
 import pygsheets
 import sys
 import os
-from oauth2client.service_account import ServiceAccountCredentials
-import datetime
 from datetime import datetime, timezone
 import time
 import socket
@@ -755,8 +752,8 @@ else:
 	print(" - prepare_sheet(hash, apphash, timestamp, backend)")
 	print(" - combine_and_strip_prefixes(backend)")
 	print(" - report_changes(backend, newbranch, oldbranch (master, misc_fixes, any, etc.))")
+	print(" - report_slowdowns(property [runtime, spatial, backend], backend, newbranch, oldbranch)")
 	print(" - finish_test(backend, branch, runtime)")
-	print(" - report_slowdowns(property [runtime, spatial, backend], newbranch, oldbranch, backend)")
 	print(" - delete_n_rows(n, ofs (use 0 for row 3, 1 for row 4, etc...), backend (vcs, scalasim, vcs-noretime, Zynq, etc...))")
 	print(" - delete_app_column(appname (regex supported), backend (vcs, scalasim, vcs-noretime, Zynq, etc...))")
 	print(" - merge_apps_columns(old appname, new appname, backend)")

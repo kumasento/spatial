@@ -6,6 +6,23 @@ import spatial.lang._
 import spatial.node._
 import spatial.metadata.control._
 import spatial.traversal.AccelTraversal
+import spatial.util.spatialConfig
+import scala.collection.mutable.{Set,HashMap,ListBuffer}
+
+
+import argon.node._
+import argon.codegen.Codegen
+import argon.node._
+import spatial.lang._
+import spatial.node._
+import spatial.metadata.bounds._
+import spatial.metadata.access._
+import spatial.metadata.retiming._
+import spatial.metadata.control._
+import spatial.metadata.memory._
+import spatial.metadata.types._
+import spatial.util.modeling.scrubNoise
+
 
 /** Converts inner pipes that contain switches into innerpipes with enabled accesses.
   * Also squashes outer unit pipes that contain only one child
@@ -14,10 +31,6 @@ case class FlatteningTransformer(IR: State) extends MutateTransformer with Accel
 
   private var flattenSwitch: Boolean = false
   private var deleteChild: Boolean = false
-
-  // private def liftBody[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
-
-  // }
 
   private def transformCtrl[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
     case ctrl: Control[_] if (lhs.isInnerControl || ctrl.bodies.exists(_.isInnerStage)) =>
@@ -42,11 +55,14 @@ case class FlatteningTransformer(IR: State) extends MutateTransformer with Accel
       // If child is UnitPipe, inline its contents with parent
       val childInputs = child.s.get.op.get.inputs
       val parentNeeded = lhs.op.get.blocks.exists{block => block.stms.exists(childInputs.contains)}
-      if (child.isUnitPipe & !parentNeeded && !lhs.isStreamControl && !child.isStreamControl){
+      val childFromUnroll = spatialConfig.enablePIR && child.s.get.unrollBy.fold(false) { _ > 1 }
+      val fromUnroll = spatialConfig.enablePIR && lhs.unrollBy.fold(false) { _ > 1 }
+      if (child.isUnitPipe & !parentNeeded && !lhs.isStreamControl && !child.isStreamControl && !childFromUnroll){
         ctrl.bodies.foreach{body => 
           body.blocks.foreach{case (_,block) => 
             val saveMerge = deleteChild
             deleteChild = true
+
             val block2 = f(block)
             register(block -> block2)
             deleteChild = saveMerge
@@ -55,7 +71,7 @@ case class FlatteningTransformer(IR: State) extends MutateTransformer with Accel
         super.transform(lhs,rhs)
       } 
       // If parent is UnitPipe, delete it
-      else if (lhs.isUnitPipe & !parentNeeded && !lhs.isStreamControl && !child.isStreamControl) {
+      else if (lhs.isUnitPipe & !parentNeeded && !lhs.isStreamControl && !child.isStreamControl && !fromUnroll) {
         ctrl.bodies.foreach{body => 
           body.blocks.foreach{case (_,block) => 
             val block2 = f(block)
@@ -68,13 +84,13 @@ case class FlatteningTransformer(IR: State) extends MutateTransformer with Accel
       }
       else super.transform(lhs,rhs)
 
-    case _ => super.transform(lhs,rhs)
+    case _ => 
+      super.transform(lhs,rhs)
   }
 
   override def transform[A:Type](lhs: Sym[A], rhs: Op[A])(implicit ctx: SrcCtx): Sym[A] = rhs match {
     case op@Switch(F(sels),_) if flattenSwitch =>
       val vals = op.cases.map{cas => inlineBlock(cas.body).unbox }
-
       Type[A] match {
         case Bits(b) =>
           implicit val bA: Bits[A] = b

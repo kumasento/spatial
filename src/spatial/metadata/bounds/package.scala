@@ -23,6 +23,12 @@ package object bounds {
 
     def isFixedBits: Boolean = s.isValue || metadata[FixedBits](s).exists(_.flag)
     def isFixedBits_=(flag: Boolean): Unit = metadata.add(s, FixedBits(flag))
+
+    def vecConst: Option[Seq[Any]] = metadata[VecConst](s).map { _.vs }
+    def vecConst_=(vs: Seq[Any]): Unit = metadata.add(s, VecConst(vs))
+
+    def count: Option[Long] = metadata[Count](s).map { _.c }
+    def count_=(c: Long): Unit = metadata.add(s, Count(c))
   }
 
 }

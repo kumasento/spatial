@@ -4,6 +4,7 @@ import argon._
 import argon.node.Enabled
 import argon.transform.MutateTransformer
 import forge.tags.rig
+import emul.{FixedPoint, Bool}
 
 import utils.math.combs
 import spatial.lang._
@@ -61,7 +62,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
 
 
   /** Lanes tracking duplications in this scope */
-  var lanes: Unroller = UnitUnroller("Accel", false)
+  var lanes: Unroller = UnitUnroller("Accel", isInnerLoop = false)
   
   /** Mapping between each lane of an Unroller to sequence of Syms to be grouped in that lane (PoM only) */
   var laneMapping: Map[(Unroller, Int), Seq[Block[_]]] = Map.empty
@@ -88,7 +89,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
   def crossSection(cchain: CounterChain, addr: List[Int]): CounterChain = {
     import argon.lang._
 
-    val ctrs2 = cchain.counters.zip(addr).map{case (ctr, i) => 
+    val ctrs2 = cchain.counters.zip(addr).map{case (ctr, i) =>
       // TODO: x.getIntValue.getOrElse(c.toInt) is only necessary if we allow dse to retune parameters (currently not the case)
       val start = ctr.start.asInstanceOf[I32] match {case Const(c) => c.toInt; case x@Final(c) => x.getIntValue.getOrElse(c.toInt); case x@Expect(c) => x.getIntValue.getOrElse(c.toInt); case _ => throw new Exception(s"Cannot unroll $cchain (${cchain.ctx}) as POM!  Please make ctr start a constant or mark controller with Pipe.MOP!")}
       val step = ctr.step.asInstanceOf[I32] match {case Const(c) => c.toInt; case x@Final(c) => x.getIntValue.getOrElse(c.toInt); case x@Expect(c) => x.getIntValue.getOrElse(c.toInt); case _ => throw new Exception(s"Cannot unroll $cchain (${cchain.ctx}) as POM!  Please make ctr step a constant or mark controller with Pipe.MOP!")}
@@ -143,7 +144,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
           }
         }
         val lhs2 = stage(ParallelPipe(enables,block))
-        lanes.unify(lhs, lhs2)        
+        lanes.unify(lhs, lhs2)
     }
     else if (!inHw) {
       dbgs(s"$lhs = $rhs [duplicate 1/1] in lane 0")
@@ -182,7 +183,12 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
   }
 
   override def mirrorNode[A](rhs: Op[A]): Op[A] = rhs match {
+    case u@UnitPipe(ens, block, stopWhen) if stopWhen.isDefined => UnitPipe(f(enables ++ ens), f(block), Some(memories(stopWhen.get,0).asInstanceOf[Reg[Bit]])).asInstanceOf[Op[A]]
     case e:Enabled[_] => e.mirrorEn(f, enables).asInstanceOf[Op[A]]
+    case LaneStatic(iter, resolutions) if unrollNum.getOrElse(iter.asInstanceOf[Idx], Seq()).size == 1 =>
+      val i = iter.asInstanceOf[Idx]
+      LaneStatic[FixPt[TRUE,_32,_0]](iter.asInstanceOf[FixPt[TRUE,_32,_0]], Seq(resolutions(unrollNum(i).head))).asInstanceOf[Op[A]]
+      // resolutions(unrollNum(i).head).asInstanceOf[Op[A]]
     case _ => super.mirrorNode(rhs)
   }
   override def updateNode[A](node: Op[A]): Unit = node match {
@@ -222,11 +228,13 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
     def P: Int = if (vectorize) 1 else Ps.product
     def V: Int = if (vectorize) Ps.product else 1
     def N: Int = Ps.length
-    def size: Int = if (__doLanes.size != 0) __doLanes.size else P
+    def size: Int = if (__doLanes.nonEmpty) __doLanes.size else P
     def prods: List[Int] = List.tabulate(N){i => Ps.slice(i+1,N).product }
 
+    // The lane id of each unrolled lane. Norally it will be a list of Seqs with single element. If
+    // the loop is vectorized it will be a List of single Seq() with vectorized lane ids
     lazy val ulanes:List[Lane] = {
-      if (vectorize) List(List.tabulate(P)(i => i))
+      if (vectorize) List(List.tabulate(V)(i => i))
       else List.tabulate(P) { p => List(p) }
     }
     /*
@@ -290,6 +298,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
     def inLane[A](lane:Lane)(block: => A): A = {
       // Note that we don't use isolateSubst (or similar here) because that would also save/restore lanes
       val i = ulanes.indexOf(lane)
+      dbgs(s"in lane $lane, $i from $ulanes")
       val save     = subst
       val saveMems = memories
       val addr     = lane.map { l => parAddr(l) }.transpose
@@ -315,7 +324,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
     def map[A](block: Lane => A): List[A] = if (__doLanes.nonEmpty) __doLanes.map{p => inLane(List(p)){ block(List(p)) } } else ulanes.map { lane => inLane(lane) { block(lane) } }
 
 
-    def foreach(block: Lane => Unit): Unit = { dbgs(s"dolanes ${__doLanes}"); map(block) }
+    def foreach(block: Lane => Unit): Unit = { map(block) }
 
     def mapFirst[A](block: => A):A = inLane(ulanes.head) { block }
 
@@ -370,7 +379,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
       List(unrolled)
     }
 
-    def duplicateMem(mem: Sym[_])(blk: Int => Seq[(Sym[_],Int)]): Unit = foreach{ lane =>
+    def duplicateMem(mem: Sym[_])(blk: Int => Seq[(Sym[_],Int)]) = map{ lane =>
       val p = ulanes.indexOf(lane)
       val duplicates = lane.flatMap { l => blk(l) }.distinct
       dbgs(s"  Registering duplicates for memory: $mem")
@@ -378,6 +387,7 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
         dbgs(s"  ($mem,$d) -> $mem2")
         (mem,d) -> mem2
       }
+      duplicates.toSet 
     }
 
     // Same symbol for all lanes
@@ -420,17 +430,33 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
     // Create bound symbols. bound takes in a counter and a list of counter indices. When not
     // vectorize, counter indices is just List(ctr idx), when it's vectorized, it's vec number of
     // indices indicating the counter index for each vectorized lane.
-    def createBounds[T<:Bits[_]](bound:(Counter[_], Lane) => T) = {
-      val default = cchain.counters.zipWithIndex.map { case (ctr, ci) =>
-        val par = if (vectorize) 1 else ctr.ctrPar.toInt
-        List.tabulate(par) { i =>
-          val ctrIdxs = if (vectorize) List.tabulate(V) { p => parAddr(p)(ci) } else List(i)
-          val b = bound(ctr, ctrIdxs)
-          b.counter = IndexCounterInfo(ctr, ctrIdxs)
-          b
-        } 
+    def createBounds[T<:Bits[_]](bound:(Counter[_], Lane) => T): Seq[Seq[T]] = {
+      if (mop) {
+        cchain.counters.zipWithIndex.map { case (ctr, ci) =>
+          val par = if (vectorize) 1 else ctr.ctrPar.toInt
+          List.tabulate(par) { i =>
+            val ctrIdxs = if (vectorize) List.tabulate(V) { p => parAddr(p)(ci) } else List(i)
+            val b = bound(ctr, ctrIdxs)
+            b.counter = IndexCounterInfo(ctr, ctrIdxs)
+            b
+          } 
+        }
+      } else {
+        if (spatialConfig.enablePIR) {
+          error(s"TODO: Plasticine doesn't support POM yet")
+          IR.logError()
+        }
+        List.tabulate(P){p => 
+          val uid = parAddr(p)
+          uid.zipWithIndex.map{case (q,i) => 
+            val ctr = cchain.counters.apply(i)
+            val ctrIdxs = List(q)
+            val b = bound(ctr, ctrIdxs)
+            b.counter = IndexCounterInfo(ctr, ctrIdxs)
+            b
+          }
+        }
       }
-      if (mop) default else List.tabulate(P){p => default.zip(parAddr(p)).map{case (vec,i) => vec(i)}}
     }
   }
 
@@ -442,23 +468,23 @@ abstract class UnrollingBase extends MutateTransformer with AccelTraversal {
   case class FullUnroller(name: String, cchain: CounterChain, inds: Seq[Idx], isInnerLoop: Boolean, mop: Boolean) extends LoopUnroller {
     lazy val indices: Seq[Seq[I32]] = createBounds{ 
       case (ctr, List(i)) => I32(ctr.start.toInt + ctr.step.toInt*i)
-      case (ctr, ctrIdxs) => stage(FixVecConstNew[TRUE,_32,_0](ctrIdxs.map{i => ctr.start.toInt + ctr.step.toInt*i }))
+      case (ctr, ctrIdxs) => val i = boundVar[I32]; i.vecConst = ctrIdxs.map{ i => FixedPoint.fromInt(ctr.start.toInt + ctr.step.toInt*i) }; i
     }
     lazy val indexValids: Seq[Seq[Bit]] = 
-    if (mop) {
-      indices.zip(cchain.counters).map{case (is,ctr) =>
-        is.map{
-          case Const(i) => Bit(i < ctr.end.toInt)
-          case Def(FixVecConstNew(is)) => stage(BitVecConstNew(is.map { _ < ctr.end.toInt }))
+      if (mop) {
+        indices.zip(cchain.counters).map{case (is,ctr) =>
+          is.map {
+            case Const(i) => Bit(i < ctr.end.toInt)
+            case VecConst(is) => val b = boundVar[Bit]; b.vecConst = is.map { i => Bool(i.asInstanceOf[FixedPoint].value < ctr.end.toInt) }; b
+          }
+        }
+      } else {
+        indices.map { inds =>
+          inds.zip(cchain.counters).map { case (i, ctr) =>
+            i match {case Const(i) => Bit(i < ctr.end.toInt) }
+          }
         }
       }
-    } else {
-      indices.map { inds =>
-        inds.zip(cchain.counters).map { case (i, ctr) =>
-          i match {case Const(i) => Bit(i < ctr.end.toInt) }
-        }
-      }
-    }
 
   }
 

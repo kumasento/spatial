@@ -3,6 +3,7 @@ package spatial.tests.feature.control
 import spatial.dsl._
 
 @spatial class MemReduceSimple extends SpatialTest {
+//  override def backends = DISABLED
   lazy val N = 16.to[Int]
 
   def main(args: Array[String]): Unit = {
@@ -31,7 +32,13 @@ import spatial.dsl._
     printArray(result, "result:   ")
     printArray(gold2, "expected: ")
     printArray(result2, "result:   ")
-    assert(gold == result, "gold did not match result")
-    assert(gold2 == result2, "gold2 did not match result2")
+    val cksum1 = gold == result
+    val cksum2 = gold2 == result2
+    assert(cksum1, "gold did not match result")
+    assert(cksum2, "gold2 did not match result2")
+    val cksum = cksum1 & cksum2
+    println("PASS: " + cksum + " (MemReduceSimple)")
+    assert(cksum)
   }
 }
+

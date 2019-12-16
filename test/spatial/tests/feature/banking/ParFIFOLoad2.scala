@@ -13,6 +13,7 @@ import spatial.dsl._
 
 
   def parFifoLoad[T:Num](src1: Array[T], src2: Array[T], src3: Array[T], in: Int): T = {
+    println(s"REMEMBER: This app relies on the pipe binding transformer!")
 
     val P1 = 1 (16 -> 16)
 
@@ -32,11 +33,11 @@ import spatial.dsl._
       val f2 = FIFO[T](tileSize)
       val f3 = FIFO[T](tileSize)
       Foreach(N by tileSize) { i =>
-        Parallel {
-          f1 load src1FPGA(i::i+tileSize par P1)
-          f2 load src2FPGA(i::i+tileSize par P1)
-          f3 load src3FPGA(i::i+tileSize par P1)
-        }
+        // Parallel {
+        f1 load src1FPGA(i::i+tileSize par P1)
+        f2 load src2FPGA(i::i+tileSize par P1)
+        f3 load src3FPGA(i::i+tileSize par P1)
+        // }
         val accum = Reduce(Reg[T](0.to[T]))(tileSize by 1){i =>
           f1.deq() * f2.deq() * f3.deq()
         }{_+_}

@@ -1,19 +1,14 @@
 package spatial.codegen.treegen
 
 import argon._
-
-import spatial.metadata.control._
 import spatial.lang._
-import spatial.node._
-import spatial.util.spatialConfig
-import spatial.codegen.naming.NamedCodegen
 import spatial.metadata.access._
-import spatial.metadata.types._
 import spatial.metadata.control._
 import spatial.metadata.memory._
+import spatial.node._
 import spatial.traversal.AccelTraversal
 import spatial.util.modeling.scrubNoise
-import emul.ResidualGenerator._
+import spatial.util.spatialConfig
 
 import scala.collection.mutable.HashMap
 

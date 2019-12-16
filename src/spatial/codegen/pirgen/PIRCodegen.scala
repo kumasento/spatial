@@ -4,6 +4,7 @@ import argon._
 import argon.codegen.{Codegen, FileDependencies}
 import spatial.metadata.CLIArgs
 import spatial.metadata.memory._
+import spatial.metadata.bounds._
 import spatial.lang._
 import spatial.util.spatialConfig
 
@@ -29,6 +30,7 @@ trait PIRCodegen extends Codegen with FileDependencies with AccelTraversal with 
       case AccelScope(func) => inAccel { genAccel(lhs, rhs) }
       case ArgInNew(init) => genAccel(lhs, rhs)
       case ArgOutNew(init) => genAccel(lhs, rhs)
+      case HostIONew(init) => genAccel(lhs, rhs)
       case StreamInNew(init) => genAccel(lhs, rhs)
       case StreamOutNew(init) => genAccel(lhs, rhs)
       case DRAMHostNew(dims,zero) => genAccel(lhs, rhs)
@@ -65,7 +67,9 @@ trait PIRCodegen extends Codegen with FileDependencies with AccelTraversal with 
     emit("")
     open(s"""object AccelMain extends PIRApp {""")
     open(src"def staging(top:Top) = {")
+    emit("""import pirgenStaging._""")
     emit("""import top._""")
+    emit(s"""top.name("${spatialConfig.name}")""")
   }
 
   def emitAccelFooter = {
@@ -73,12 +77,22 @@ trait PIRCodegen extends Codegen with FileDependencies with AccelTraversal with 
     close("}")
   }
 
-  override protected def quoteConst(tp: Type[_], c: Any): String = c match {
-    case c:String => s"""Const("${c.replace("\n","\\n")}")"""
-    case c => src"Const($c).tp(${tp})"
+  override def quote(s: Sym[_]): String = s match {
+    case VecConst(vs) => src"Const(${vs}).tp(${s.tp})"
+    case s => super.quote(s)
+  }
+
+  def quoteString(x:Any) = x match {
+    case x:String => s""""${x.replace("\n","\\n")}""""
+    case x => x
+  }
+
+  override protected def quoteConst(tp: Type[_], c: Any): String = {
+    src"Const(${quoteString(c)}).tp(${tp})"
   }
 
   override protected def quoteOrRemap(arg: Any): String = arg match {
+    case x:SrcCtx => x.toString
     case p: Set[_]   => 
       s"Set(${p.map(quoteOrRemap).mkString(", ")})" 
     case p: Iterable[_]   => 
@@ -89,6 +103,7 @@ trait PIRCodegen extends Codegen with FileDependencies with AccelTraversal with 
     case l: Long       => l.toString + "L"
     case None    => "None"
     case Some(x) => "Some(" + quoteOrRemap(x) + ")"
+    case x:Product if x.productIterator.nonEmpty => s"${x.productPrefix}(${x.productIterator.map{ f => quoteOrRemap(quoteString(f))}.mkString(",")})"
     case x => x.toString
   }
 

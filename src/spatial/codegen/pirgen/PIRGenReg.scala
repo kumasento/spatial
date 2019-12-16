@@ -8,26 +8,30 @@ import spatial.metadata.memory._
 trait PIRGenReg extends PIRCodegen {
 
   override protected def genAccel(lhs: Sym[_], rhs: Op[_]): Unit = rhs match {
-    case op@RegNew(init)    =>
-      stateMem(lhs, "Reg()", Some(List(init)))
+    case op@RegNew(Const(init))    =>
+      stateMem(lhs, "Reg()", Some(init))
 
-    case op@ArgInNew(init)  =>
-      stateMem(lhs, s"""argIn("${lhs.name.getOrElse(s"$lhs")}")""", tp=Some("Reg"), inits=Some(List(init)))
+    case op@ArgInNew(Const(init))  =>
+      stateMem(lhs, s"""argIn("${lhs.name.getOrElse(s"$lhs")}")""", tp=Some("Reg"), inits=Some(init))
 
-    case op@HostIONew(init)  =>
-      stateMem(lhs, "argIn()", tp=Some("Reg"), inits=Some(List(init)))
+    case op@HostIONew(Const(init))  =>
+      stateMem(lhs, "hostIO()", tp=Some("Reg"), inits=Some(init))
 
-    case op@ArgOutNew(init) =>
-      stateMem(lhs, "argOut()", tp=Some("Reg"), inits=Some(List(init)))
+    case op@ArgOutNew(Const(init)) =>
+      stateMem(lhs, "argOut()", tp=Some("Reg"), inits=Some(init))
 
     case RegReset(reg, ens) =>
       stateStruct(lhs, reg)(field => src"RegReset(reg=${Lhs(reg,field.map{_._1})}, ens=$ens)")
 
     case RegRead(reg)       => 
-      stateRead(lhs, reg, None, None, Seq(Set.empty))
+      stateAccess(lhs, reg, Seq(Set.empty)) {
+        src"MemRead()"
+      }
 
     case RegWrite(reg,v,ens) => 
-      stateWrite(lhs, reg, None, None, Seq(v), Seq(ens))
+      stateAccess(lhs, reg, Seq(ens), data=Some(Seq(v))) {
+        src"MemWrite()"
+      }
 
     case RegAccumOp(reg,in,ens,op,first) =>
       state(lhs)(src"""RegAccumOp("$op").in($in).en($ens).first($first).tp(${lhs.tp})""")
