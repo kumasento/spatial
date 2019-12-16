@@ -150,6 +150,8 @@ trait Spatial extends Compiler with ParamLoader {
         /** Dead code elimination */
         useAnalyzer         ==>
         transientCleanup    ==> printer ==> transformerChecks ==>
+        /** Auto diff */
+        autoDiff ==> printer ==>
         /** Memory analysis */
         retimingAnalyzer    ==>
         accessAnalyzer      ==>
@@ -163,8 +165,6 @@ trait Spatial extends Compiler with ParamLoader {
         /** Dead code elimination */
         useAnalyzer         ==>
         transientCleanup    ==> printer ==> transformerChecks ==>
-        /** Auto diff */
-        autoDiff ==> printer ==>
         /** Hardware Rewrites **/
         rewriteAnalyzer     ==>
         (spatialConfig.enableOptimizedReduce ? accumAnalyzer) ==> printer ==>
