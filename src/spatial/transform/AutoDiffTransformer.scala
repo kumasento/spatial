@@ -231,7 +231,7 @@ case class AutoDiffTransformer(IR: State) extends MutateTransformer with BlkTrav
 
     // super.transform(lhs, rhs)
     case _ =>
-      println(s"lhs = $lhs rhs = $rhs")
+      // println(s"lhs = $lhs rhs = $rhs")
       super.transform(lhs, rhs)
   }
 }
