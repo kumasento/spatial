@@ -52,3 +52,6 @@ branchname
 reghash
 bin/spatialfast
 lib_managed
+
+.metals/
+.vscode/
